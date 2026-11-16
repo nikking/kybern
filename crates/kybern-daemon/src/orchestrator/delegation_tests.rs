@@ -296,6 +296,10 @@ fn child_permission_is_never_broader_than_the_parents() {
     assert!(resolve(Supervised, ClaudeCode, ClaudeCode, Some(FullAccess)).is_err());
     assert!(resolve(AcceptEdits, ClaudeCode, Codex, Some(AcceptEdits)).is_err(), "no equivalent mapping across harnesses");
     assert!(resolve(AcceptEdits, ClaudeCode, ClaudeCode, Some(Auto)).is_err());
+    assert_eq!(resolve(Auto, ClaudeCode, Codex, None).unwrap(), Auto, "Codex's sandboxed auto carries over");
+    assert_eq!(resolve(Auto, ClaudeCode, Codex, Some(Auto)).unwrap(), Auto);
+    assert_eq!(resolve(Auto, Codex, ClaudeCode, None).unwrap(), Supervised, "Claude's auto is not sandboxed");
+    assert!(resolve(Auto, Codex, ClaudeCode, Some(Auto)).is_err());
 }
 
 #[tokio::test]

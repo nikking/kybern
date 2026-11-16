@@ -245,8 +245,10 @@ struct InterruptArgs {
 ///
 /// A child may never hold more authority than its parent. Crossing to another
 /// harness cannot carry an `accept-edits` or `auto` mapping, so it drops to
-/// `supervised` unless the parent has full access. An explicit request must be
-/// `supervised`, the parent's own mode on the same harness, or anything when
+/// `supervised` unless the parent has full access. The exception is `auto` into
+/// Codex: its sandbox confines writes to the checkout and blocks the network,
+/// so it is no broader than any parent's `auto`. An explicit request must be
+/// `supervised`, the parent's own mode where it carries over, or anything when
 /// the parent has full access.
 pub(super) fn resolve_child_permission(
     parent_mode: PermissionMode,
@@ -254,15 +256,14 @@ pub(super) fn resolve_child_permission(
     child_kind: ProviderKind,
     requested: Option<PermissionMode>,
 ) -> Result<PermissionMode> {
-    let crosses_provider = child_kind != parent_kind;
-    let requested = requested.unwrap_or(if crosses_provider && parent_mode != PermissionMode::FullAccess {
+    let carries_over = child_kind == parent_kind || (parent_mode == PermissionMode::Auto && child_kind == ProviderKind::Codex);
+    let requested = requested.unwrap_or(if !carries_over && parent_mode != PermissionMode::FullAccess {
         PermissionMode::Supervised
     } else {
         parent_mode
     });
-    let allowed = parent_mode == PermissionMode::FullAccess
-        || requested == PermissionMode::Supervised
-        || (!crosses_provider && requested == parent_mode);
+    let allowed =
+        parent_mode == PermissionMode::FullAccess || requested == PermissionMode::Supervised || (carries_over && requested == parent_mode);
     if !allowed {
         return Err(anyhow!(
             "child permission mode has no conservative subset mapping for the parent harness; use supervised or delegate from a full-access parent"
